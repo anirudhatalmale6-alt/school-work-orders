@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work Orders — Campus Maintenance Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <filter id="stampTexture">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="noise"/>
+    <feComposite operator="in" in="noise" in2="SourceGraphic" result="texturedStamp"/>
+    <feComposite operator="over" in="texturedStamp" in2="SourceGraphic"/>
+  </filter>
+</svg>
+
+<!-- ---------------------------------------------------------- SIGN IN ---- -->
+<div id="gateScreen">
+  <div class="gate-card">
+    <h2>Work Orders</h2>
+    <div class="sub">Campus Maintenance Log — staff only</div>
+    <form id="loginForm" autocomplete="on">
+      <input type="email" id="loginEmail" placeholder="Email address" autocomplete="username" required>
+      <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit" id="loginSubmit">Sign in</button>
+    </form>
+    <div class="err" id="gateErr"></div>
+    <div class="gate-foot">Forgotten your password? Ask one of the two portal administrators to reset it for you.</div>
+  </div>
+</div>
+
+<!-- ------------------------------------------------ FORCED PASSWORD SET -- -->
+<div id="pwScreen" style="display:none;">
+  <div class="gate-card">
+    <h2>Set a password</h2>
+    <div class="sub" id="pwWho"></div>
+    <form id="pwForm" autocomplete="on">
+      <input type="password" id="pwCurrent" placeholder="Temporary password" autocomplete="current-password" required>
+      <input type="password" id="pwNext" placeholder="New password" autocomplete="new-password" required>
+      <input type="password" id="pwConfirm" placeholder="Repeat new password" autocomplete="new-password" required>
+      <button type="submit">Save password</button>
+    </form>
+    <div class="err" id="pwErr"></div>
+    <div class="gate-foot" id="pwRules"></div>
+  </div>
+</div>
+
+<!-- -------------------------------------------------------------- APP ---- -->
+<div class="app" id="appRoot">
+
+  <div class="masthead">
+    <div>
+      <h1>Work Orders</h1>
+      <div class="sub">Campus Maintenance Log</div>
+    </div>
+    <div class="identity" id="identityBox"></div>
+  </div>
+
+  <div id="toastArea"></div>
+
+  <div class="tabs" id="tabBar">
+    <div class="tab active" data-panel="new">New Request</div>
+    <div class="tab" data-panel="board">Board <span class="count" id="boardCount">0</span></div>
+    <div class="tab" data-panel="mine">My Requests <span class="count" id="mineCount">0</span></div>
+    <div class="tab" data-panel="audit">Audit Log</div>
+    <div class="tab admin-only" data-panel="staff">Staff</div>
+  </div>
+
+  <!-- NEW REQUEST -->
+  <div class="panel active" id="panel-new">
+    <div class="slip">
+      <div class="field">
+        <span class="slip-label">What needs fixing?</span>
+        <input type="text" id="f-title" placeholder="e.g. Projector won't turn on">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <span class="slip-label">Location / Room</span>
+          <input type="text" id="f-location" placeholder="e.g. Room 214">
+        </div>
+        <div class="field">
+          <span class="slip-label">Submitted by</span>
+          <div class="readonly-field" id="f-requester">—</div>
+        </div>
+      </div>
+      <div class="field">
+        <span class="slip-label">Details</span>
+        <textarea id="f-desc" placeholder="Anything the maintenance team should know — when it started, what you've tried, safety concerns, etc."></textarea>
+      </div>
+      <div class="field">
+        <span class="slip-label">Urgency</span>
+        <div class="urgency-group" id="urgencyGroup">
+          <div class="urgency-opt" data-level="low">Low</div>
+          <div class="urgency-opt sel" data-level="normal">Normal</div>
+          <div class="urgency-opt" data-level="urgent">Urgent</div>
+        </div>
+      </div>
+      <button class="submit-btn" id="submitBtn">Submit Request</button>
+      <div class="form-note" id="formNote">Requests are visible to the whole staff board and to the maintenance team.</div>
+    </div>
+  </div>
+
+  <!-- BOARD -->
+  <div class="panel" id="panel-board">
+    <div class="board-controls">
+      <div class="filter-group" id="filterGroup">
+        <div class="filter-chip active" data-filter="all">All</div>
+        <div class="filter-chip" data-filter="open">Open</div>
+        <div class="filter-chip" data-filter="received">Received</div>
+        <div class="filter-chip" data-filter="completed">Completed</div>
+      </div>
+      <div class="role-note" id="roleNote"></div>
+    </div>
+    <div id="boardList"></div>
+  </div>
+
+  <!-- MY REQUESTS -->
+  <div class="panel" id="panel-mine">
+    <div id="mineList"></div>
+  </div>
+
+  <!-- AUDIT LOG -->
+  <div class="panel" id="panel-audit">
+    <div class="form-note" style="margin-bottom:14px;">
+      Every entry below is recorded against the signed-in account that performed the action.
+    </div>
+    <div id="auditList"></div>
+  </div>
+
+  <!-- STAFF (admins only) -->
+  <div class="panel" id="panel-staff">
+    <div class="slip" style="margin-bottom:18px;">
+      <div class="slip-label" style="margin-bottom:10px;">Add a staff member</div>
+      <div class="row2">
+        <div class="field">
+          <span class="slip-label">Full name</span>
+          <input type="text" id="u-name" placeholder="e.g. Mrs. Alvarez">
+        </div>
+        <div class="field">
+          <span class="slip-label">Email address</span>
+          <input type="text" id="u-email" placeholder="e.g. alvarez@school.org">
+        </div>
+      </div>
+      <div class="field">
+        <span class="slip-label">Access level</span>
+        <div class="urgency-group" id="roleGroup">
+          <div class="urgency-opt sel" data-role="staff">Staff</div>
+          <div class="urgency-opt" data-role="admin">Administrator</div>
+        </div>
+      </div>
+      <button class="submit-btn" id="addUserBtn">Create account</button>
+      <div class="form-note" id="userNote">Staff can submit and track requests. Administrators additionally see every ticket and change its status.</div>
+    </div>
+    <div id="userList"></div>
+  </div>
+
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

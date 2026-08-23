@@ -1,0 +1,26 @@
+# Systemd unit for the DigitalOcean / plain-VPS route.
+# Install to /etc/systemd/system/work-orders.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now work-orders
+
+[Unit]
+Description=Work Orders — campus maintenance portal
+After=network.target
+
+[Service]
+Type=simple
+User=workorders
+WorkingDirectory=/opt/work-orders
+EnvironmentFile=/opt/work-orders/.env
+ExecStart=/usr/bin/node server.js
+
+# This is what makes the portal come back on its own after a crash or a reboot.
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
