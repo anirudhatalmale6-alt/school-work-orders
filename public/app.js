@@ -214,9 +214,10 @@ function renderToast() {
   if (!me) { area.innerHTML = ''; return; }
   const newlyDone = tickets.filter(t => t.requesterId === me.id && t.status === 'completed' && !dismissedIds.includes(t.id));
   if (newlyDone.length === 0) { area.innerHTML = ''; return; }
-  const word = newlyDone.length === 1 ? 'request has' : 'requests have';
+  const count = newlyDone.length === 1 ? 'One' : String(newlyDone.length);
+  const verb = newlyDone.length === 1 ? 'has' : 'have';
   area.innerHTML = `<div class="toast">
-    <span>✓ ${newlyDone.length} of your ${word} been marked complete.</span>
+    <span>✓ ${count} of your requests ${verb} been marked complete.</span>
     <button id="viewCompletedBtn">View</button>
   </div>`;
   document.getElementById('viewCompletedBtn').onclick = () => switchTab('mine');
