@@ -33,6 +33,25 @@ async function api(path, options) {
   return body;
 }
 
+// A sleeping host is not a broken portal. The trial host stops the service when
+// nobody has used it for a while, and for a few seconds either side of waking up
+// its router answers as though nothing is there. Read requests retry quietly
+// rather than dropping somebody onto an empty screen.
+//
+// Only ever use this for reads. Retrying a sign-in would burn through the
+// login attempt limit on a mistyped password.
+async function apiRetry(path, tries = 5) {
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      return await api(path);
+    } catch (ex) {
+      if (ex.message === 'signed out') throw ex;
+      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+    }
+  }
+  throw new Error('The server did not answer. It may still be waking up — please try again in a moment.');
+}
+
 // --------------------------------------------------------------- helpers ----
 
 function escapeHtml(s) {
@@ -72,6 +91,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   const btn = document.getElementById('loginSubmit');
   err.textContent = '';
   btn.disabled = true;
+  btn.textContent = 'Signing in…';
   try {
     const out = await api('/api/login', {
       method: 'POST',
@@ -87,6 +107,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     err.textContent = ex.message;
   } finally {
     btn.disabled = false;
+    btn.textContent = 'Sign in';
   }
 });
 
@@ -97,9 +118,11 @@ async function afterSignIn() {
     document.getElementById('pwCurrent').focus();
     return;
   }
-  screen('app');
   document.body.classList.toggle('is-admin', isAdmin());
+  // Load the board before showing it. Handing somebody an empty screen because
+  // the first read happened to fail looks like the portal has lost their work.
   await refresh(true);
+  screen('app');
   if (!pollTimer) pollTimer = setInterval(poll, POLL_MS);
 }
 
@@ -129,7 +152,7 @@ document.getElementById('pwForm').addEventListener('submit', async (e) => {
 // ----------------------------------------------------------- live state ----
 
 async function refresh(force) {
-  const state = await api('/api/state');
+  const state = await apiRetry('/api/state');
   rev = state.rev;
   me = state.user;
   tickets = state.tickets;
