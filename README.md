@@ -51,6 +51,15 @@ on crash and starts it on boot. Put a reverse proxy in front of it for HTTPS.
 
 **Docker:** `docker build -t work-orders . && docker run -p 3000:3000 -v wo-data:/var/data --env-file .env work-orders`
 
+## Trying it out before it goes live
+
+A free host has no permanent disk, so the database is wiped every time the
+service sleeps or redeploys. `SEED_USERS` and `DEMO_TICKETS=1` rebuild the
+accounts and a few example requests whenever the app starts on an empty
+database, which keeps a trial instance usable. Both are skipped as soon as
+there is any real data, so they are harmless to leave set — but remove them at
+go-live, once the app is on a paid instance with a disk attached.
+
 ## Configuration
 
 All settings are environment variables — see `.env.example`. `DATA_DIR` must

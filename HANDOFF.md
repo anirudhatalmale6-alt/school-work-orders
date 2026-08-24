@@ -125,7 +125,26 @@ submitting a ticket never depends on an email going out.
 
 ---
 
-## 10. Things worth knowing
+## 10. While it is still on the free trial host
+
+Before the portal moves to its permanent home it runs on a free plan, which
+behaves differently in two ways worth knowing about:
+
+- **It falls asleep after fifteen minutes with nobody using it.** The next
+  person to open the link waits about a minute while it wakes up. Open the link
+  a couple of minutes before showing it to anyone and it will be ready.
+- **A free plan has no permanent storage.** Anything added — new requests,
+  status changes, accounts created from the Staff tab — is lost when it falls
+  asleep. It comes back with the starting accounts and a few example requests
+  rather than an empty screen, so it always looks right, but it is not a place
+  to keep anything real yet.
+
+Both of these disappear on the paid plan, which is a setting change on the same
+service — no rebuilding, no new address.
+
+---
+
+## 11. Things worth knowing
 
 - The board refreshes itself every few seconds, so an admin marking a job
   complete appears on a teacher's screen without anyone reloading the page.

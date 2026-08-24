@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const { db, bumpRev, getRev, DATA_DIR } = require('./db');
 const { validatePassword, describeRules, generateTempPassword } = require('./passwords');
 const mailer = require('./mailer');
+const { seed } = require('./seed');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -377,28 +378,7 @@ app.get('/healthz', (req, res) => res.json({ ok: true }));
 
 // ------------------------------------------------------------ first boot ----
 
-function seedFirstAdmin() {
-  const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
-  if (count > 0) return;
-
-  const email = (process.env.ADMIN_EMAIL || 'admin@example.org').trim().toLowerCase();
-  const name = process.env.ADMIN_NAME || 'Administrator';
-  const password = process.env.ADMIN_PASSWORD || generateTempPassword();
-  const mustChange = process.env.ADMIN_PASSWORD ? 0 : 1;
-
-  db.prepare(`INSERT INTO users (email, name, password_hash, role, must_change_password, created_at)
-    VALUES (?, ?, ?, 'admin', ?, ?)`)
-    .run(email, name, bcrypt.hashSync(password, 12), mustChange, new Date().toISOString());
-
-  console.log('\n=== First administrator account created ===');
-  console.log('  Email:    ' + email);
-  if (!process.env.ADMIN_PASSWORD) {
-    console.log('  Password: ' + password + '   (you will be asked to change it at first sign-in)');
-  }
-  console.log('===========================================\n');
-}
-
-seedFirstAdmin();
+seed();
 
 app.listen(PORT, () => {
   console.log(`Work Orders running on port ${PORT} (${IS_PROD ? 'production' : 'development'})`);
