@@ -172,7 +172,18 @@ input[type=text]:focus, textarea:focus, select:focus{
   outline-offset:1px;
   background:var(--white);
 }
-textarea{resize:vertical;min-height:70px;}
+/* Was 70px, which made anything past a sentence or two feel cramped. It also
+   grows with what is typed — see autoGrow() in app.js. */
+textarea{resize:vertical;min-height:170px;overflow-y:auto;}
+.char-count{
+  font-family:'Space Mono',monospace;
+  font-size:0.72rem;
+  color:var(--ink-soft);
+  text-align:right;
+  margin-top:4px;
+  min-height:1em;
+}
+.char-count.over{color:var(--stamp-red);font-weight:600;}
 .urgency-group{display:flex;gap:8px;}
 .urgency-opt{
   flex:1;

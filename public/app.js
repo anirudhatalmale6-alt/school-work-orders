@@ -12,6 +12,10 @@ let selectedUrgency = 'normal';
 let selectedRole = 'staff';
 let pollTimer = null;
 
+// Overwritten from /api/me at start-up so the server stays the single authority on
+// how long an entry may be. These are only a sane fallback if that call is slow.
+let limits = { title: 300, location: 200, description: 20000 };
+
 // ------------------------------------------------------------------ api ----
 
 async function api(path, options) {
@@ -353,6 +357,40 @@ document.getElementById('urgencyGroup').addEventListener('click', (e) => {
   document.querySelectorAll('#urgencyGroup .urgency-opt').forEach(o => o.classList.toggle('sel', o === opt));
 });
 
+// The Details box grows as somebody types instead of making them scroll inside a
+// small window, and stops growing once it would push the Submit button off screen.
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight + 2, 460) + 'px';
+}
+
+// Only speak up near the limit. A counter sitting under the box from the first
+// keystroke reads as a word limit and makes people write less than they should.
+function updateCounter() {
+  const el = document.getElementById('f-desc');
+  const counter = document.getElementById('descCount');
+  const used = el.value.length;
+  const max = limits.description;
+
+  if (used < max * 0.8) {
+    counter.textContent = '';
+    counter.classList.remove('over');
+    return;
+  }
+  counter.classList.toggle('over', used > max);
+  counter.textContent = used > max
+    ? `${(used - max).toLocaleString('en-US')} characters over the limit`
+    : `${used.toLocaleString('en-US')} of ${max.toLocaleString('en-US')} characters`;
+}
+
+function applyLimits() {
+  const desc = document.getElementById('f-desc');
+  document.getElementById('f-title').maxLength = limits.title;
+  document.getElementById('f-location').maxLength = limits.location;
+  desc.addEventListener('input', () => { autoGrow(desc); updateCounter(); });
+  autoGrow(desc);
+}
+
 document.getElementById('submitBtn').addEventListener('click', async () => {
   const title = document.getElementById('f-title').value.trim();
   const location = document.getElementById('f-location').value.trim();
@@ -361,6 +399,22 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
 
   if (!title || !location) {
     note.textContent = 'Please fill in what needs fixing and the location.';
+    note.style.color = 'var(--stamp-red)';
+    return;
+  }
+
+  // Catch an over-long entry here so nobody writes a long request, presses Submit
+  // and only then finds out — and say which box it is rather than "an entry".
+  const tooLong = [
+    ['What needs fixing', title, limits.title],
+    ['Location / Room', location, limits.location],
+    ['Details', desc, limits.description]
+  ].find(([, value, max]) => value.length > max);
+
+  if (tooLong) {
+    const [label, value, max] = tooLong;
+    note.textContent = `"${label}" is ${(value.length - max).toLocaleString('en-US')} `
+      + `characters over the limit of ${max.toLocaleString('en-US')}. Please shorten it a little.`;
     note.style.color = 'var(--stamp-red)';
     return;
   }
@@ -378,6 +432,8 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
   document.getElementById('f-title').value = '';
   document.getElementById('f-location').value = '';
   document.getElementById('f-desc').value = '';
+  autoGrow(document.getElementById('f-desc'));
+  updateCounter();
   selectedUrgency = 'normal';
   document.querySelectorAll('#urgencyGroup .urgency-opt').forEach(o => o.classList.toggle('sel', o.dataset.level === 'normal'));
   note.textContent = 'Request submitted. You can track it under "My Requests."';
@@ -490,6 +546,8 @@ async function handleUserAction(e) {
   try {
     const out = await api('/api/me');
     document.getElementById('pwRules').textContent = out.passwordRules;
+    if (out.limits) limits = out.limits;
+    applyLimits();
     if (out.user) {
       me = out.user;
       await afterSignIn();

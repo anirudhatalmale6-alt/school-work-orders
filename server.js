@@ -17,6 +17,13 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const IS_PROD = process.env.NODE_ENV === 'production';
 
+// How much somebody may type into each box on a request. The browser reads these
+// from /api/me rather than carrying its own copy, so the counter under the box and
+// the check on the server can never drift apart and disagree with each other.
+// Details is deliberately generous: a caretaker describing a leak should never be
+// asked to be briefer.
+const LIMITS = { title: 300, location: 200, description: 20000 };
+
 // Render / DigitalOcean / nginx all terminate TLS in front of us; without this the
 // secure cookie is never set and nobody can stay logged in.
 app.set('trust proxy', 1);
@@ -174,7 +181,8 @@ app.get('/api/me', (req, res) => {
   res.json({
     user: u ? publicUser(u) : null,
     passwordRules: describeRules(),
-    mailEnabled: mailer.enabled
+    mailEnabled: mailer.enabled,
+    limits: LIMITS
   });
 });
 
@@ -223,8 +231,21 @@ app.post('/api/tickets', requireAuth, requirePasswordSet, async (req, res) => {
   if (!title || !location) {
     return res.status(400).json({ error: 'Please fill in what needs fixing and the location.' });
   }
-  if (title.length > 200 || location.length > 120 || description.length > 4000) {
-    return res.status(400).json({ error: 'That entry is longer than the form allows.' });
+  // Say which box is too long and by how much. The old message named no field,
+  // so somebody with a long request had to guess which one to cut down.
+  const tooLong = [
+    ['What needs fixing', title, LIMITS.title],
+    ['Location / Room', location, LIMITS.location],
+    ['Details', description, LIMITS.description]
+  ].find(([, value, max]) => value.length > max);
+
+  if (tooLong) {
+    const [label, value, max] = tooLong;
+    return res.status(400).json({
+      error: `"${label}" is ${value.length.toLocaleString('en-US')} characters. `
+           + `The limit is ${max.toLocaleString('en-US')} — please shorten it by `
+           + `${(value.length - max).toLocaleString('en-US')}.`
+    });
   }
 
   const id = uid();
@@ -268,7 +289,9 @@ app.post('/api/tickets/:id/receive', requireAuth, requirePasswordSet, requireAdm
 });
 
 app.post('/api/tickets/:id/complete', requireAuth, requirePasswordSet, requireAdmin, (req, res) => {
-  const note = String(req.body.note || '').trim().slice(0, 2000);
+  // Was capped at 2,000 and quietly cut the rest off, so a long note from
+  // maintenance lost its ending with nobody told. Same generous limit as Details.
+  const note = String(req.body.note || '').trim().slice(0, LIMITS.description);
   const t = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
   if (!t) return res.status(404).json({ error: 'That request no longer exists.' });
   if (t.status === 'completed') return res.status(409).json({ error: 'That request is already marked complete.' });
