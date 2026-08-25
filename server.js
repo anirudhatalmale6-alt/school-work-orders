@@ -3,12 +3,12 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const SessionStore = require('./session-store');
 const bcrypt = require('bcryptjs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const { db, bumpRev, getRev, DATA_DIR } = require('./db');
+const { db, bumpRev, getRev } = require('./db');
 const { validatePassword, describeRules, generateTempPassword } = require('./passwords');
 const mailer = require('./mailer');
 const { seed } = require('./seed');
@@ -50,7 +50,7 @@ if (IS_PROD && !process.env.SESSION_SECRET) {
 }
 
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.db', dir: DATA_DIR }),
+  store: new SessionStore(),
   secret: process.env.SESSION_SECRET || 'dev-only-insecure-secret',
   resave: false,
   saveUninitialized: false,
