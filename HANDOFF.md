@@ -117,8 +117,18 @@ Restoring is a matter of putting that one file back and restarting.
 
 Optional and off unless SMTP details have been configured on the host. When on:
 
-- all administrators are emailed when a new request comes in
-- the person who raised a request is emailed when it is marked complete
+- all administrators are emailed when a new request comes in, with `URGENT —` at
+  the front of the subject line when the request was marked urgent
+- the person who raised a request is emailed when it is **marked received**, so
+  they know it has been picked up without having to open the portal
+- the person who raised a request is emailed again when it is marked complete
+
+**Telling someone about urgent requests only.** A facilities director who does
+not hold an administrator account can still be alerted. Add their address to
+`URGENT_ALERT_EMAILS` in the host's settings — several addresses separated by
+commas, semicolons or one per line. They are added to the urgent emails only;
+ordinary requests still go to administrators alone. Somebody who is already an
+administrator will not receive two copies.
 
 If the mail server ever misbehaves, the portal carries on working normally —
 submitting a ticket never depends on an email going out.

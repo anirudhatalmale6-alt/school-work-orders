@@ -141,6 +141,35 @@ function adminEmails() {
     .all().map(r => r.email);
 }
 
+// People who should hear about an URGENT request even though they do not hold an
+// administrator account in the portal — the facilities director, for instance.
+// Set as URGENT_ALERT_EMAILS in the host's settings (commas, semicolons or one
+// per line) rather than in the code, so real staff addresses stay out of the
+// public repository.
+function urgentAlertEmails() {
+  return String(process.env.URGENT_ALERT_EMAILS || '')
+    .split(/[,;\n]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+// Who gets told about a brand-new request. Every active administrator always,
+// plus the urgent-only list when it is urgent. Compared lower-case so a director
+// who also has an admin account does not receive two copies of the same email.
+function newRequestRecipients(urgency) {
+  const out = [];
+  const seen = new Set();
+  const add = (email) => {
+    const key = String(email || '').trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(email.trim());
+  };
+  adminEmails().forEach(add);
+  if (urgency === 'urgent') urgentAlertEmails().forEach(add);
+  return out;
+}
+
 // ------------------------------------------------------------------ auth ----
 
 const loginLimiter = rateLimit({
@@ -265,7 +294,7 @@ app.post('/api/tickets', requireAuth, requirePasswordSet, async (req, res) => {
   res.json({ ok: true, id });
 
   mailer.send({
-    to: adminEmails().join(','),
+    to: newRequestRecipients(urgency).join(','),
     subject: `[Work Orders] ${urgency === 'urgent' ? 'URGENT — ' : ''}${title}`,
     text: `${req.user.name} submitted a new request.\n\n`
         + `What: ${title}\nWhere: ${location}\nUrgency: ${urgency}\n\n`
@@ -286,6 +315,19 @@ app.post('/api/tickets/:id/receive', requireAuth, requirePasswordSet, requireAdm
     bumpRev();
   })();
   res.json({ ok: true });
+
+  // The portal itself already shows the requester their card turning RECEIVED,
+  // but only while they happen to have it open. This is the message for the
+  // teacher who submitted something and went back to a classroom.
+  const requester = db.prepare('SELECT email FROM users WHERE id = ?').get(t.requester_id);
+  mailer.send({
+    to: requester && requester.email,
+    subject: `[Work Orders] Received — ${t.title}`,
+    text: `${req.user.name} has picked up your request. It is now marked Received.\n\n`
+        + `What: ${t.title}\nWhere: ${t.location}\n\n`
+        + `You will get another message when it is marked complete, and you can `
+        + `follow it at any time under "My Requests" in the portal.\n`
+  });
 });
 
 app.post('/api/tickets/:id/complete', requireAuth, requirePasswordSet, requireAdmin, (req, res) => {
