@@ -221,9 +221,11 @@ single start.
 1. At **render.com**, click **highpoint-work-orders**.
 2. In the left-hand menu, click **Environment**.
 3. Click **Add Environment Variable** and enter:
-   - Key `EMERGENCY_CONTACT_NAME`, Value `Victor Mejia`
+   - Key `EMERGENCY_CONTACT_NAME`, Value `Victor Mejia`  (or whoever it should be)
 4. Click **Add Environment Variable** again and enter:
-   - Key `EMERGENCY_CONTACT_PHONE`, Value `626-993-5120`
+   - Key `EMERGENCY_CONTACT_PHONE`, Value — the caretaker's real mobile number,
+     the same one you typed into the Staff tab. It is deliberately not written
+     out here, because this page is public.
 5. Click **Save Changes**.
 
 Saving restarts the portal by itself, so there is no Manual Deploy to do
