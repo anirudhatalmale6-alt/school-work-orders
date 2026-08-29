@@ -73,6 +73,7 @@
 
   <!-- NEW REQUEST -->
   <div class="panel active" id="panel-new">
+    <div class="emergency" id="emergencyBanner" style="display:none;"></div>
     <div class="slip">
       <div class="field">
         <span class="slip-label">What needs fixing?</span>
@@ -113,6 +114,7 @@
         <div class="filter-chip active" data-filter="all">All</div>
         <div class="filter-chip" data-filter="open">Open</div>
         <div class="filter-chip" data-filter="received">Received</div>
+        <div class="filter-chip" data-filter="pending">Pending</div>
         <div class="filter-chip" data-filter="completed">Completed</div>
       </div>
       <div class="role-note" id="roleNote"></div>
@@ -135,6 +137,25 @@
 
   <!-- STAFF (admins only) -->
   <div class="panel" id="panel-staff">
+    <div class="slip" style="margin-bottom:18px;">
+      <div class="slip-label" style="margin-bottom:10px;">Emergency contact</div>
+      <div class="row2">
+        <div class="field">
+          <span class="slip-label">Name</span>
+          <input type="text" id="e-name" placeholder="e.g. Victor Mejia">
+        </div>
+        <div class="field">
+          <span class="slip-label">Phone number</span>
+          <input type="text" id="e-phone" placeholder="e.g. 626-993-5120">
+        </div>
+      </div>
+      <div class="field">
+        <span class="slip-label">Extra line (optional)</span>
+        <input type="text" id="e-note" placeholder="e.g. flooding, gas, power, anything unsafe">
+      </div>
+      <button class="submit-btn" id="saveEmergencyBtn">Save contact</button>
+      <div class="form-note" id="emergencyNote">Shown at the top of the New Request form for every signed-in member of staff. Leave both boxes empty to hide it.</div>
+    </div>
     <div class="slip" style="margin-bottom:18px;">
       <div class="slip-label" style="margin-bottom:10px;">Add a staff member</div>
       <div class="row2">

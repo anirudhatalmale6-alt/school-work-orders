@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const { db, bumpRev, getRev } = require('./db');
+const { db, bumpRev, getRev, getSetting, setSetting } = require('./db');
 const { validatePassword, describeRules, generateTempPassword } = require('./passwords');
 const mailer = require('./mailer');
 const { seed } = require('./seed');
@@ -22,7 +22,7 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 // the check on the server can never drift apart and disagree with each other.
 // Details is deliberately generous: a caretaker describing a leak should never be
 // asked to be briefer.
-const LIMITS = { title: 300, location: 200, description: 20000 };
+const LIMITS = { title: 300, location: 200, description: 20000, pendingReason: 400 };
 
 // Render / DigitalOcean / nginx all terminate TLS in front of us; without this the
 // secure cookie is never set and nobody can stay logged in.
@@ -125,6 +125,8 @@ function ticketRow(t, history) {
     requester: t.requester_name,
     dateSubmitted: t.date_submitted,
     dateReceived: t.date_received,
+    datePending: t.date_pending,
+    pendingReason: t.pending_reason || '',
     dateCompleted: t.date_completed,
     completionNote: t.completion_note,
     history: history.filter(h => h.ticket_id === t.id).map(h => ({
@@ -170,6 +172,19 @@ function newRequestRecipients(urgency) {
   return out;
 }
 
+// The "for an emergency, call ..." line at the top of the request form. Held in
+// the database and editable from the Staff tab, so when the person on call
+// changes the office can correct it themselves in ten seconds. Deliberately not
+// written into the code: the repository is public, and a personal mobile number
+// has no business sitting in it.
+function emergencyContact() {
+  return {
+    name: getSetting('emergency_name', ''),
+    phone: getSetting('emergency_phone', ''),
+    note: getSetting('emergency_note', '')
+  };
+}
+
 // ------------------------------------------------------------------ auth ----
 
 const loginLimiter = rateLimit({
@@ -211,8 +226,25 @@ app.get('/api/me', (req, res) => {
     user: u ? publicUser(u) : null,
     passwordRules: describeRules(),
     mailEnabled: mailer.enabled,
-    limits: LIMITS
+    limits: LIMITS,
+    emergency: u ? emergencyContact() : { name: '', phone: '', note: '' }
   });
+});
+
+app.post('/api/settings/emergency', requireAuth, requirePasswordSet, requireAdmin, (req, res) => {
+  const name = String(req.body.name || '').trim().slice(0, 120);
+  const phone = String(req.body.phone || '').trim().slice(0, 40);
+  const note = String(req.body.note || '').trim().slice(0, 200);
+
+  // Both blank is a valid answer — it takes the notice off the form entirely.
+  if ((name && !phone) || (phone && !name)) {
+    return res.status(400).json({ error: 'Please give both a name and a number, or leave both blank to hide the notice.' });
+  }
+  setSetting('emergency_name', name);
+  setSetting('emergency_phone', phone);
+  setSetting('emergency_note', note);
+  bumpRev();
+  res.json({ ok: true, emergency: emergencyContact() });
 });
 
 app.post('/api/change-password', requireAuth, async (req, res) => {
@@ -247,7 +279,8 @@ app.get('/api/state', requireAuth, requirePasswordSet, (req, res) => {
     rev: getRev(),
     user: publicUser(req.user),
     tickets: tickets.map(t => ticketRow(t, history)),
-    dismissed
+    dismissed,
+    emergency: emergencyContact()
   });
 });
 
@@ -305,13 +338,18 @@ app.post('/api/tickets', requireAuth, requirePasswordSet, async (req, res) => {
 app.post('/api/tickets/:id/receive', requireAuth, requirePasswordSet, requireAdmin, (req, res) => {
   const t = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
   if (!t) return res.status(404).json({ error: 'That request no longer exists.' });
-  if (t.status !== 'open') return res.status(409).json({ error: 'That request has already been picked up.' });
+  if (t.status === 'received') return res.status(409).json({ error: 'That request has already been picked up.' });
+  if (t.status === 'completed') return res.status(409).json({ error: 'That request is already marked complete.' });
 
+  // The same button takes a job off hold once the part turns up, so say which of
+  // the two happened — in the log, and to the person who is waiting.
+  const resuming = t.status === 'pending';
   const now = new Date().toISOString();
   db.transaction(() => {
-    db.prepare(`UPDATE tickets SET status = 'received', date_received = ? WHERE id = ?`).run(now, t.id);
+    db.prepare(`UPDATE tickets SET status = 'received', date_received = COALESCE(date_received, ?),
+      date_pending = NULL, pending_reason = '' WHERE id = ?`).run(now, t.id);
     db.prepare(`INSERT INTO ticket_history (ticket_id, action, user_id, user_name, at)
-      VALUES (?, 'received', ?, ?, ?)`).run(t.id, req.user.id, req.user.name, now);
+      VALUES (?, ?, ?, ?, ?)`).run(t.id, resuming ? 'resumed' : 'received', req.user.id, req.user.name, now);
     bumpRev();
   })();
   res.json({ ok: true });
@@ -322,11 +360,44 @@ app.post('/api/tickets/:id/receive', requireAuth, requirePasswordSet, requireAdm
   const requester = db.prepare('SELECT email FROM users WHERE id = ?').get(t.requester_id);
   mailer.send({
     to: requester && requester.email,
-    subject: `[Work Orders] Received — ${t.title}`,
-    text: `${req.user.name} has picked up your request. It is now marked Received.\n\n`
+    subject: `[Work Orders] ${resuming ? 'Back under way' : 'Received'} — ${t.title}`,
+    text: (resuming
+            ? `${req.user.name} has taken your request off hold. Work has started again.\n\n`
+            : `${req.user.name} has picked up your request. It is now marked Received.\n\n`)
         + `What: ${t.title}\nWhere: ${t.location}\n\n`
         + `You will get another message when it is marked complete, and you can `
         + `follow it at any time under "My Requests" in the portal.\n`
+  });
+});
+
+// On hold: seen, but waiting on a part, a vendor or an approval. Sits between
+// Received and Completed. The reason is optional but it is the whole point of
+// the button — it is what stops the teacher ringing the maintenance office to
+// ask, so the form nudges for it and everyone can read it on the card.
+app.post('/api/tickets/:id/pending', requireAuth, requirePasswordSet, requireAdmin, (req, res) => {
+  const reason = String(req.body.reason || '').trim().slice(0, LIMITS.pendingReason);
+  const t = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
+  if (!t) return res.status(404).json({ error: 'That request no longer exists.' });
+  if (t.status === 'completed') return res.status(409).json({ error: 'That request is already marked complete.' });
+
+  const now = new Date().toISOString();
+  db.transaction(() => {
+    db.prepare(`UPDATE tickets SET status = 'pending', date_pending = ?, pending_reason = ?,
+      date_received = COALESCE(date_received, ?) WHERE id = ?`).run(now, reason, now, t.id);
+    db.prepare(`INSERT INTO ticket_history (ticket_id, action, user_id, user_name, at, note)
+      VALUES (?, 'pending', ?, ?, ?, ?)`).run(t.id, req.user.id, req.user.name, now, reason);
+    bumpRev();
+  })();
+  res.json({ ok: true });
+
+  const requester = db.prepare('SELECT email FROM users WHERE id = ?').get(t.requester_id);
+  mailer.send({
+    to: requester && requester.email,
+    subject: `[Work Orders] On hold — ${t.title}`,
+    text: `${req.user.name} has put your request on hold.\n\n`
+        + `What: ${t.title}\nWhere: ${t.location}\n\n`
+        + (reason ? `Reason: ${reason}\n\n` : '')
+        + `It has not been forgotten — you will hear again when it moves on.\n`
   });
 });
 
@@ -340,7 +411,8 @@ app.post('/api/tickets/:id/complete', requireAuth, requirePasswordSet, requireAd
 
   const now = new Date().toISOString();
   db.transaction(() => {
-    db.prepare(`UPDATE tickets SET status = 'completed', date_completed = ?, completion_note = ? WHERE id = ?`)
+    db.prepare(`UPDATE tickets SET status = 'completed', date_completed = ?, completion_note = ?,
+      date_pending = NULL, pending_reason = '' WHERE id = ?`)
       .run(now, note, t.id);
     db.prepare(`INSERT INTO ticket_history (ticket_id, action, user_id, user_name, at, note)
       VALUES (?, 'completed', ?, ?, ?, ?)`).run(t.id, req.user.id, req.user.name, now, note);

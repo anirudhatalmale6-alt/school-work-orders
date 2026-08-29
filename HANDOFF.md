@@ -11,15 +11,60 @@ No coding involved in any of the tasks below.
 the whole board, read the audit log. They cannot change the status of anything.
 
 **Administrators** — everything staff can do, plus:
-- the *Mark Received* and *Mark Completed* buttons on every ticket
-- the **Staff** tab, for adding people and resetting passwords
+- the *Mark Received*, *Mark Pending* and *Mark Completed* buttons on every ticket
+- the **Staff** tab, for adding people, resetting passwords and setting the
+  emergency contact
 
 Keep at least two administrators. The portal will refuse to remove the last one,
 so the school cannot lock itself out.
 
 ---
 
-## 2. Adding a new staff member
+## 2. The four statuses
+
+**Open** — submitted, nobody has picked it up yet.
+
+**Received** — someone on the maintenance team has seen it and it is in hand.
+
+**Pending** — seen, but standing still: waiting on a part, a vendor or an
+approval. Press **Mark Pending** and the portal asks what it is waiting on. Type
+a short line — *"waiting on the part, ordered Tuesday"* — and the person who
+raised the request sees it on their own card and gets it by email. That one line
+is the whole point of the button: it is what stops them ringing the maintenance
+office to ask. Leave the box empty if you would rather not say, and it still
+goes on hold.
+
+When the part turns up, press **Take off hold** and it goes back to Received.
+Pending requests still count in the Board tally — nothing hides by being on hold.
+
+**Completed** — done. The completion note is optional and is shown to the
+requester.
+
+Any status can go straight to Completed, and anything not yet complete can be
+put on hold, so nobody has to walk a request through the steps in order.
+
+---
+
+## 3. The emergency notice
+
+The yellow line at the top of the New Request form — *"Do not use this form.
+Call ... directly on ..."*.
+
+**Staff** tab → **Emergency contact** → type the name and number → **Save
+contact**. It appears immediately for everyone; nothing needs restarting. The
+number is a link, so on a phone it dials with one tap.
+
+Leave both boxes empty and press Save to take the notice off the form
+altogether. The optional extra line is for saying what counts — *"flooding, gas,
+power, or anything unsafe"*.
+
+The number is kept in the school's own database, not written into the code, so
+whoever is on call can be changed by the office in ten seconds and no personal
+mobile number ever sits in the source repository.
+
+---
+
+## 4. Adding a new staff member
 
 1. Sign in as an administrator.
 2. Open the **Staff** tab.
@@ -36,7 +81,7 @@ audit log, so spell it the way the school refers to them.
 
 ---
 
-## 3. Resetting a forgotten password
+## 5. Resetting a forgotten password
 
 1. **Staff** tab → find the person → **Reset password**.
 2. Confirm. Their old password stops working straight away.
@@ -49,7 +94,7 @@ is of no use to anyone who gets hold of it.
 
 ---
 
-## 4. When someone leaves
+## 6. When someone leaves
 
 **Staff** tab → **Switch off**. Their sign-in stops working immediately, but
 their old tickets and audit-log entries stay intact, so the history stays
@@ -57,7 +102,7 @@ readable. **Switch back on** reverses it if they return.
 
 ---
 
-## 5. Password rules
+## 7. Password rules
 
 Enforced by the server, so they cannot be skipped:
 
@@ -68,7 +113,7 @@ Enforced by the server, so they cannot be skipped:
 
 ---
 
-## 6. Restarting the portal
+## 8. Restarting the portal
 
 Almost never needed — the service is set to restart itself automatically after a
 crash, and to start again on its own if the server reboots.
@@ -90,7 +135,7 @@ To read the last hundred lines of the log if something looks wrong:
 
 ---
 
-## 7. Is it actually up?
+## 9. Is it actually up?
 
 Visit `/healthz` on the portal address, e.g.
 `https://workorders.yourschool.org/healthz`. A page reading `{"ok":true}` means
@@ -99,7 +144,7 @@ is the first thing to try.
 
 ---
 
-## 8. Backups
+## 10. Backups
 
 The whole portal — every ticket, account and audit entry — lives in one file:
 `workorders.db`, inside the data folder.
@@ -113,7 +158,7 @@ Restoring is a matter of putting that one file back and restarting.
 
 ---
 
-## 9. Email notifications
+## 11. Email notifications
 
 Optional and off unless SMTP details have been configured on the host. When on:
 
@@ -121,6 +166,8 @@ Optional and off unless SMTP details have been configured on the host. When on:
   the front of the subject line when the request was marked urgent
 - the person who raised a request is emailed when it is **marked received**, so
   they know it has been picked up without having to open the portal
+- the person who raised a request is emailed when it is **put on hold**, with the
+  reason, and again when it is taken off hold
 - the person who raised a request is emailed again when it is marked complete
 
 **Telling someone about urgent requests only.** A facilities director who does
@@ -135,7 +182,7 @@ submitting a ticket never depends on an email going out.
 
 ---
 
-## 10. While it is still on the free trial host
+## 12. While it is still on the free trial host
 
 Before the portal moves to its permanent home it runs on a free plan, which
 behaves differently in two ways worth knowing about:
@@ -144,17 +191,24 @@ behaves differently in two ways worth knowing about:
   person to open the link waits about a minute while it wakes up. Open the link
   a couple of minutes before showing it to anyone and it will be ready.
 - **A free plan has no permanent storage.** Anything added — new requests,
-  status changes, accounts created from the Staff tab — is lost when it falls
-  asleep. It comes back with the starting accounts and a few example requests
-  rather than an empty screen, so it always looks right, but it is not a place
-  to keep anything real yet.
+  status changes, accounts created from the Staff tab, the emergency contact
+  typed in on the Staff tab — is lost when it falls asleep. It comes back with
+  the starting accounts and a few example requests rather than an empty screen,
+  so it always looks right, but it is not a place to keep anything real yet.
+
+  The emergency contact is the one thing worth pinning down during the trial,
+  since a blank notice looks like a fault. Set `EMERGENCY_CONTACT_NAME` and
+  `EMERGENCY_CONTACT_PHONE` in the host's settings and it is put back every time
+  the service wakes up. Those two are only ever used to fill in a blank — once
+  the paid plan is on and someone has typed a contact into the Staff tab, what
+  they typed wins and stays.
 
 Both of these disappear on the paid plan, which is a setting change on the same
 service — no rebuilding, no new address.
 
 ---
 
-## 11. Things worth knowing
+## 13. Things worth knowing
 
 - The board refreshes itself every few seconds, so an admin marking a job
   complete appears on a teacher's screen without anyone reloading the page.

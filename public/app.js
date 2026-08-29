@@ -1,5 +1,5 @@
 const URGENCY_LABEL = { low: 'Low', normal: 'Normal', urgent: 'Urgent' };
-const STATUS_LABEL = { open: 'Open', received: 'Received', completed: 'Completed' };
+const STATUS_LABEL = { open: 'Open', received: 'Received', pending: 'Pending', completed: 'Completed' };
 const POLL_MS = 5000;
 
 let tickets = [];
@@ -14,7 +14,8 @@ let pollTimer = null;
 
 // Overwritten from /api/me at start-up so the server stays the single authority on
 // how long an entry may be. These are only a sane fallback if that call is slow.
-let limits = { title: 300, location: 200, description: 20000 };
+let limits = { title: 300, location: 200, description: 20000, pendingReason: 400 };
+let emergency = { name: '', phone: '', note: '' };
 
 // ------------------------------------------------------------------ api ----
 
@@ -161,6 +162,7 @@ async function refresh(force) {
   me = state.user;
   tickets = state.tickets;
   dismissedIds = state.dismissed;
+  if (state.emergency) emergency = state.emergency;
   document.body.classList.toggle('is-admin', isAdmin());
   renderAll();
   if (force && isAdmin()) renderUsers().catch(() => {});
@@ -204,13 +206,27 @@ function renderIdentity() {
   document.getElementById('f-requester').textContent = me.name;
 }
 
+// The portal is not the place for a genuine emergency, and the request form is
+// exactly where somebody will be standing when they realise that. On a phone the
+// number is tappable.
+function renderEmergency() {
+  const box = document.getElementById('emergencyBanner');
+  if (!emergency.name || !emergency.phone) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const dial = emergency.phone.replace(/[^0-9+]/g, '');
+  box.style.display = 'block';
+  box.innerHTML = `<span class="emergency-flag">Emergency</span>
+    <span class="emergency-text">Do not use this form. Call ${escapeHtml(emergency.name)} directly on
+    <a class="emergency-phone" href="tel:${escapeHtml(dial)}">${escapeHtml(emergency.phone)}</a>.
+    ${emergency.note ? escapeHtml(emergency.note) : ''}</span>`;
+}
+
 function switchTab(name) {
   if (name === 'staff' && !isAdmin()) return;
   currentTab = name;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
   renderAll();
-  if (name === 'staff') renderUsers().catch(() => {});
+  if (name === 'staff') { fillEmergencyForm(); renderUsers().catch(() => {}); }
 }
 
 function renderToast() {
@@ -235,10 +251,17 @@ function ticketCard(t, opts) {
     if (t.status === 'open') {
       actions += `<button class="action-btn" data-action="receive" data-id="${t.id}">Mark Received</button>`;
     }
+    if (t.status === 'pending') {
+      actions += `<button class="action-btn" data-action="receive" data-id="${t.id}">Take off hold</button>`;
+    } else {
+      actions += `<button class="action-btn" data-action="pending" data-id="${t.id}">Mark Pending</button>`;
+    }
     actions += `<button class="action-btn primary" data-action="complete" data-id="${t.id}">Mark Completed</button>`;
   }
   const note = (t.status === 'completed' && t.completionNote)
-    ? `<div class="ticket-note">Completion note: ${escapeHtml(t.completionNote)}</div>` : '';
+    ? `<div class="ticket-note">Completion note: ${escapeHtml(t.completionNote)}</div>`
+    : (t.status === 'pending' && t.pendingReason)
+      ? `<div class="ticket-note pending">On hold: ${escapeHtml(t.pendingReason)}</div>` : '';
   const ackBtn = opts.showAck
     ? `<div class="ticket-actions"><button class="action-btn" data-action="ack" data-id="${t.id}">Got it — dismiss</button></div>` : '';
 
@@ -257,6 +280,7 @@ function ticketCard(t, opts) {
       <span>🙋 ${escapeHtml(t.requester || '—')}</span>
       <span>⚑ ${URGENCY_LABEL[t.urgency] || 'Normal'}</span>
       ${t.dateReceived ? `<span>📥 Received ${fmtDate(t.dateReceived)}</span>` : ''}
+      ${t.datePending ? `<span>⏸ On hold since ${fmtDate(t.datePending)}</span>` : ''}
       ${t.dateCompleted ? `<span>✅ Completed ${fmtDate(t.dateCompleted)}</span>` : ''}
     </div>
     ${t.description ? `<div class="ticket-desc">${escapeHtml(t.description)}</div>` : ''}
@@ -305,7 +329,13 @@ function renderAudit() {
     list.innerHTML = `<div class="empty">No activity recorded yet.</div>`;
     return;
   }
-  const actionText = { submitted: 'submitted', received: 'marked received', completed: 'marked completed' };
+  const actionText = {
+    submitted: 'submitted',
+    received: 'marked received',
+    pending: 'put on hold',
+    resumed: 'took off hold',
+    completed: 'marked completed'
+  };
   list.innerHTML = entries.map(h => `
     <div class="audit-row">
       <div class="audit-time">${fmtDate(h.at)}</div>
@@ -321,6 +351,7 @@ function renderAudit() {
 
 function renderAll() {
   renderIdentity();
+  renderEmergency();
   renderToast();
   if (currentTab === 'board') renderBoard();
   if (currentTab === 'mine') renderMine();
@@ -336,8 +367,21 @@ async function handleAction(e) {
   try {
     if (action === 'receive') {
       await api(`/api/tickets/${encodeURIComponent(id)}/receive`, { method: 'POST' });
+    } else if (action === 'pending') {
+      const existing = (tickets.find(t => t.id === id) || {}).pendingReason || '';
+      const reason = window.prompt(
+        'What is it waiting on? This is shown to the person who raised the request.\n'
+        + 'e.g. "waiting on the part, ordered Tuesday"', existing);
+      // Cancel means cancel. Only an explicitly empty box puts it on hold with
+      // no reason given.
+      if (reason === null) { e.currentTarget.disabled = false; return; }
+      await api(`/api/tickets/${encodeURIComponent(id)}/pending`, {
+        method: 'POST', body: JSON.stringify({ reason: reason.slice(0, limits.pendingReason) })
+      });
     } else if (action === 'complete') {
-      const note = window.prompt('Add a short completion note (optional):', '') || '';
+      // Cancel used to mark the request complete anyway, with an empty note.
+      const note = window.prompt('Add a short completion note (optional):', '');
+      if (note === null) { e.currentTarget.disabled = false; return; }
       await api(`/api/tickets/${encodeURIComponent(id)}/complete`, {
         method: 'POST', body: JSON.stringify({ note })
       });
@@ -462,6 +506,35 @@ document.getElementById('roleGroup').addEventListener('click', (e) => {
   document.querySelectorAll('#roleGroup .urgency-opt').forEach(o => o.classList.toggle('sel', o === opt));
 });
 
+function fillEmergencyForm() {
+  document.getElementById('e-name').value = emergency.name || '';
+  document.getElementById('e-phone').value = emergency.phone || '';
+  document.getElementById('e-note').value = emergency.note || '';
+}
+
+document.getElementById('saveEmergencyBtn').addEventListener('click', async () => {
+  const note = document.getElementById('emergencyNote');
+  try {
+    const out = await api('/api/settings/emergency', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: document.getElementById('e-name').value.trim(),
+        phone: document.getElementById('e-phone').value.trim(),
+        note: document.getElementById('e-note').value.trim()
+      })
+    });
+    emergency = out.emergency;
+    renderEmergency();
+    note.textContent = emergency.name
+      ? `Saved. Staff will see "call ${emergency.name} on ${emergency.phone}" at the top of the request form.`
+      : 'Saved. The emergency notice is now hidden.';
+    note.style.color = 'var(--stamp-green)';
+  } catch (ex) {
+    note.textContent = ex.message;
+    note.style.color = 'var(--stamp-red)';
+  }
+});
+
 document.getElementById('addUserBtn').addEventListener('click', async () => {
   const note = document.getElementById('userNote');
   try {
@@ -547,6 +620,7 @@ async function handleUserAction(e) {
     const out = await api('/api/me');
     document.getElementById('pwRules').textContent = out.passwordRules;
     if (out.limits) limits = out.limits;
+    if (out.emergency) emergency = out.emergency;
     applyLimits();
     if (out.user) {
       me = out.user;

@@ -13,7 +13,7 @@
 // committed here.
 
 const bcrypt = require('bcryptjs');
-const { db, bumpRev } = require('./db');
+const { db, bumpRev, getSetting, setSetting } = require('./db');
 const { generateTempPassword } = require('./passwords');
 
 // "Name | email | role | password" — one per line, or separated by semicolons.
@@ -107,6 +107,15 @@ const SAMPLE_TICKETS = [
     hoursAgo: 8
   },
   {
+    title: 'Gym water fountain not running',
+    location: 'Gym — north wall',
+    description: 'No water at all. The one by the locker rooms still works.',
+    urgency: 'normal',
+    status: 'pending',
+    pendingReason: 'Waiting on the replacement valve — ordered Tuesday, due end of the week.',
+    hoursAgo: 70
+  },
+  {
     title: 'Thermostat stuck at 78',
     location: 'Room 208',
     description: 'Room is very warm all afternoon regardless of the setting.',
@@ -150,12 +159,14 @@ function seedSampleTickets() {
 
       db.prepare(`INSERT INTO tickets
         (id, title, location, description, urgency, status, requester_id, requester_name,
-         date_submitted, date_received, date_completed, completion_note)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+         date_submitted, date_received, date_pending, pending_reason, date_completed, completion_note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(
           id, s.title, s.location, s.description, s.urgency, s.status,
           requester.id, requester.name, submitted,
           s.status === 'open' ? null : at(s.hoursAgo - 2),
+          s.status === 'pending' ? at(s.hoursAgo - 4) : null,
+          s.pendingReason || '',
           s.status === 'completed' ? at(s.hoursAgo - 5) : null,
           s.completionNote || ''
         );
@@ -165,6 +176,11 @@ function seedSampleTickets() {
       if (s.status !== 'open') {
         db.prepare(`INSERT INTO ticket_history (ticket_id, action, user_id, user_name, at)
           VALUES (?, 'received', ?, ?, ?)`).run(id, admin.id, admin.name, at(s.hoursAgo - 2));
+      }
+      if (s.status === 'pending') {
+        db.prepare(`INSERT INTO ticket_history (ticket_id, action, user_id, user_name, at, note)
+          VALUES (?, 'pending', ?, ?, ?, ?)`)
+          .run(id, admin.id, admin.name, at(s.hoursAgo - 4), s.pendingReason || '');
       }
       if (s.status === 'completed') {
         db.prepare(`INSERT INTO ticket_history (ticket_id, action, user_id, user_name, at, note)
@@ -178,8 +194,25 @@ function seedSampleTickets() {
   console.log(`Seeded ${SAMPLE_TICKETS.length} sample tickets (DEMO_TICKETS=1).`);
 }
 
+// The emergency contact is normally typed in on the Staff tab and stays put.
+// These settings only fill it in when it has never been set, which matters on the
+// free trial host: that wipes the database when it sleeps, and without this the
+// notice would quietly disappear from the form overnight.
+function seedEmergencyContact() {
+  const name = (process.env.EMERGENCY_CONTACT_NAME || '').trim();
+  const phone = (process.env.EMERGENCY_CONTACT_PHONE || '').trim();
+  if (!name || !phone) return;
+  if (getSetting('emergency_name') || getSetting('emergency_phone')) return;
+
+  setSetting('emergency_name', name);
+  setSetting('emergency_phone', phone);
+  setSetting('emergency_note', (process.env.EMERGENCY_CONTACT_NOTE || '').trim());
+  console.log(`Emergency contact set from the host settings: ${name}.`);
+}
+
 function seed() {
   seedUsers();
+  seedEmergencyContact();
   seedSampleTickets();
 }
 

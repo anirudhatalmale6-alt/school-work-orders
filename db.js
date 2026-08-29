@@ -62,8 +62,32 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 `);
 
+// Columns added after the first version shipped. Adding them here rather than in
+// the CREATE TABLE above means a database that already holds real requests picks
+// them up on the next start, without anyone having to touch it.
+function addColumn(table, column, definition) {
+  const exists = db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === column);
+  if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+addColumn('tickets', 'date_pending', 'TEXT');
+addColumn('tickets', 'pending_reason', `TEXT NOT NULL DEFAULT ''`);
+
 // `rev` is bumped on every write so browsers can cheaply poll for changes.
 db.prepare(`INSERT OR IGNORE INTO meta (key, value) VALUES ('rev', '1')`).run();
+
+// Small pieces of text the office can change for itself — the emergency contact
+// shown on the request form, for instance. Kept in the database rather than in
+// the code so nobody needs a developer to correct a phone number.
+function getSetting(key, fallback = '') {
+  const row = db.prepare(`SELECT value FROM meta WHERE key = ?`).get('setting:' + key);
+  return row ? row.value : fallback;
+}
+
+function setSetting(key, value) {
+  db.prepare(`INSERT INTO meta (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run('setting:' + key, String(value));
+}
 
 function bumpRev() {
   db.prepare(`UPDATE meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'rev'`).run();
@@ -73,4 +97,4 @@ function getRev() {
   return Number(db.prepare(`SELECT value FROM meta WHERE key = 'rev'`).get().value);
 }
 
-module.exports = { db, bumpRev, getRev, DATA_DIR };
+module.exports = { db, bumpRev, getRev, getSetting, setSetting, DATA_DIR };
