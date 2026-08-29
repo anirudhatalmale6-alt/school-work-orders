@@ -189,3 +189,60 @@ where it cannot be reached. Typing boxes are also 16px, which stops iPhones
 zooming the page in when someone taps into one.
 
 ![The portal on a phone](screenshots/21-phone-readability.png)
+
+---
+
+# The emergency notice
+
+### 19. Why it disappeared, and how to pin it down
+
+The notice itself is fine — here it is on the current build, in the new colours:
+
+![The emergency notice on the request form](screenshots/22-emergency-notice.png)
+
+*(The number above is a made-up test number. The real one is never written into
+this repository, because anyone can read it.)*
+
+It vanished because of the free hosting plan, not because of anything you did
+and not because of the colour changes — I checked that first, by putting a
+contact back in and confirming the notice still draws correctly.
+
+A free plan gives the portal no permanent storage. Every time it redeploys, or
+goes to sleep after a quiet spell and wakes up again, it starts from a blank
+database. Sign-ins and the sample requests come back on their own, because the
+host rebuilds those from its settings on every start. The emergency contact was
+typed straight into the Staff tab, so there was nothing to rebuild it from — and
+it went quiet.
+
+**The fix, which takes about a minute and holds permanently:** put the contact
+in the host's settings instead of the Staff tab, and it is restored on every
+single start.
+
+1. At **render.com**, click **highpoint-work-orders**.
+2. In the left-hand menu, click **Environment**.
+3. Click **Add Environment Variable** and enter:
+   - Key `EMERGENCY_CONTACT_NAME`, Value `Victor Mejia`
+4. Click **Add Environment Variable** again and enter:
+   - Key `EMERGENCY_CONTACT_PHONE`, Value `626-993-5120`
+5. Click **Save Changes**.
+
+Saving restarts the portal by itself, so there is no Manual Deploy to do
+afterwards. Give it a minute, then reload the request form.
+
+While the portal is on the free plan, treat those two settings as the real
+copy of the number. Typing a different number into the Staff tab still works and
+shows immediately, but the next restart puts the settings version back.
+
+### 20. The part that matters more
+
+The same wipe applies to real work orders. Anything staff submit today would be
+gone the next time the service slept. That is fine while it is only you and me
+trying it out, and it is exactly why the sample requests are there — an empty
+board looks broken.
+
+Before you hand the address out to staff, the portal needs to move to Render's
+paid plan with a disk attached, which is what makes the database permanent. That
+is a charge from Render, not from me — their Starter plan is about $7 a month.
+The settings for it are already written and waiting in `render.yaml`; I will do
+the switch-over with you when you are ready, and turn the sample requests off at
+the same time so staff start with a clean board.
