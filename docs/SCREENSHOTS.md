@@ -142,3 +142,50 @@ reason attached.
 ### 15. On a phone
 
 ![The portal on a phone](screenshots/18-phone.png)
+
+---
+---
+
+# Easier to read
+
+Asked for on 29 August: darker lettering, and something other than pale grey
+around the edges. Same local test run — invented names and rooms.
+
+---
+
+### 16. Before and after, side by side
+
+The wording, the boxes and the layout are untouched. What changed is that the
+small capital labels went from a pale grey-blue to nearly black and up from
+under 11px to about 13px, the example text inside each box got darker, the
+outlines went from a faint grey to blue, and the surround behind the white slip
+is a deeper blue-grey so the form stands out from the page instead of blending
+into it.
+
+The example text in an empty box is deliberately still a shade lighter than
+something actually typed in — otherwise an empty box looks like a filled one.
+Say the word if you would rather it were fully black.
+
+![Before and after](screenshots/19-before-after.png)
+
+---
+
+### 17. The board
+
+The status stamps used to be the faintest thing on a card, which is backwards —
+the status is the first thing anyone looks for. They keep the tilted rubber
+stamp look but are now solid colour on a tint, instead of a mottled outline.
+
+![The board, easier to read](screenshots/20-board-readability.png)
+
+---
+
+### 18. On a phone
+
+Two things were running off the right-hand edge of a phone screen: the row of
+tabs (once Staff appears, for administrators) and the row of status chips once
+Pending was added. Both now wrap onto a second line, so nothing sits off screen
+where it cannot be reached. Typing boxes are also 16px, which stops iPhones
+zooming the page in when someone taps into one.
+
+![The portal on a phone](screenshots/21-phone-readability.png)

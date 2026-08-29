@@ -4,10 +4,18 @@
    "About Us" button. Everything else is derived from those three, so changing
    the four values below re-skins the whole portal. */
 :root{
+  /* --page is the background behind everything; --paper is the light fill inside
+     the white cards (input boxes, urgency buttons). They were the same colour
+     until the office asked for the surround to be darker, which is what makes
+     the white slips stand out instead of floating on near-white. */
+  --page: #d3ddee;
   --paper: #eef1f7;
   --paper-dark: #dfe5ef;
   --ink: #0e1f3b;
-  --ink-soft: #5a6b85;
+  /* Was #5a6b85. Every small label, date and hint on the portal uses this, and
+     at 11px that grey-blue was hard work to read, so it is now close to black. */
+  --ink-soft: #243349;
+  --hint: #3f4c66;
   --chalk: #18345c;
   --chalk-light: #26497e;
   --gold: #efd14f;
@@ -16,7 +24,10 @@
   --stamp-amber: #a8791a;
   --stamp-green: #2f6b4f;
   --stamp-slate: #3d6098;
-  --line: #c6d0e0;
+  /* Was #c6d0e0, which all but disappeared against white. --line-soft keeps the
+     long lists of audit rows from turning into a ladder of hard blue rules. */
+  --line: #5c78a6;
+  --line-soft: #aabbd4;
   --white: #ffffff;
   --radius: 3px;
 }
@@ -25,8 +36,8 @@
 html,body{margin:0;padding:0;}
 body{
   background:
-    linear-gradient(var(--paper), var(--paper)),
-    repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(14,31,59,0.045) 28px);
+    linear-gradient(var(--page), var(--page)),
+    repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(14,31,59,0.06) 28px);
   color:var(--ink);
   font-family:'Inter',sans-serif;
   min-height:100vh;
@@ -82,7 +93,7 @@ body{
   background:var(--chalk);
   color:var(--white);
   font-family:'Space Mono',monospace;
-  font-size:0.82rem;
+  font-size:0.88rem;
   padding:12px 16px;
   border-radius:var(--radius);
   margin-bottom:18px;
@@ -100,8 +111,13 @@ body{
 }
 
 /* ---------- Tabs ---------- */
+/* Five tabs (Staff only shows for administrators) do not fit across a phone —
+   an admin on a 390px screen was losing the right-hand edge off screen with no
+   way to reach it. They wrap onto a second row instead of scrolling sideways:
+   a hidden scroll strip is easy to miss and awkward to swipe on a small card. */
 .tabs{
   display:flex;
+  flex-wrap:wrap;
   gap:2px;
   margin-bottom:22px;
   border-bottom:1px solid var(--line);
@@ -123,14 +139,14 @@ body{
 }
 .tab.active{
   color:var(--ink);
-  background:var(--paper);
+  background:var(--page);
   border-color:var(--line);
-  border-bottom:1px solid var(--paper);
+  border-bottom:1px solid var(--page);
   box-shadow:inset 0 3px 0 var(--gold);
 }
 .tab .count{
   font-family:'Space Mono',monospace;
-  font-size:0.68rem;
+  font-size:0.74rem;
   background:var(--ink);
   color:var(--paper);
   padding:1px 6px;
@@ -154,12 +170,14 @@ body{
 .slip::before{
   content:'';
   position:absolute; top:-1px; left:24px; right:24px; height:0;
-  border-top:2px dashed var(--line);
+  border-top:2px dashed var(--line-soft);
 }
+/* 0.68rem worked out at under 11px on screen, which the office found hard to
+   read. Everything small on the portal moved up a step at the same time. */
 .slip-label{
   font-family:'Space Mono',monospace;
-  font-size:0.68rem;
-  letter-spacing:0.1em;
+  font-size:0.8rem;
+  letter-spacing:0.08em;
   text-transform:uppercase;
   color:var(--ink-soft);
   margin-bottom:5px;
@@ -170,12 +188,22 @@ body{
 input[type=text], textarea, select{
   width:100%;
   font-family:'Inter',sans-serif;
-  font-size:0.95rem;
+  /* 16px rather than 15.2px: easier to read, and it also stops iPhones zooming
+     the page in the moment someone taps into a box. */
+  font-size:1rem;
   padding:10px 11px;
-  border:1px solid var(--line);
+  border:1.5px solid var(--line);
   border-radius:2px;
   background:var(--paper);
   color:var(--ink);
+}
+/* The example text inside an empty box. Browsers default this to a pale grey
+   that the office could not read; this is dark enough to read but still clearly
+   lighter than something actually typed in, so an empty box still looks empty.
+   opacity:1 is not redundant — Firefox fades placeholders without it. */
+input::placeholder, textarea::placeholder{
+  color:var(--hint);
+  opacity:1;
 }
 input[type=text]:focus, textarea:focus, select:focus{
   outline:2px solid var(--chalk);
@@ -187,7 +215,7 @@ input[type=text]:focus, textarea:focus, select:focus{
 textarea{resize:vertical;min-height:170px;overflow-y:auto;}
 .char-count{
   font-family:'Space Mono',monospace;
-  font-size:0.72rem;
+  font-size:0.78rem;
   color:var(--ink-soft);
   text-align:right;
   margin-top:4px;
@@ -203,7 +231,7 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
   border-radius:2px;
   cursor:pointer;
   font-family:'Space Mono',monospace;
-  font-size:0.78rem;
+  font-size:0.84rem;
   text-transform:uppercase;
   letter-spacing:0.04em;
   color:var(--ink-soft);
@@ -230,7 +258,7 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
 .submit-btn:hover{background:var(--chalk-light);}
 .form-note{
   font-family:'Space Mono',monospace;
-  font-size:0.72rem;
+  font-size:0.78rem;
   color:var(--ink-soft);
   margin-top:10px;
 }
@@ -239,10 +267,11 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
 .board-controls{
   display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;
 }
-.filter-group{display:flex;gap:6px;}
+/* Same reason as .tabs — five status chips overflow a phone. */
+.filter-group{display:flex;flex-wrap:wrap;gap:6px;}
 .filter-chip{
   font-family:'Space Mono',monospace;
-  font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;
+  font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em;
   padding:6px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;
   background:var(--white);color:var(--ink-soft);
 }
@@ -264,13 +293,13 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
   overflow:hidden;
 }
 .ticket-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
-.ticket-id{font-family:'Space Mono',monospace;font-size:0.68rem;color:var(--ink-soft);}
+.ticket-id{font-family:'Space Mono',monospace;font-size:0.76rem;color:var(--ink-soft);}
 .ticket-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.3rem;margin:2px 0 2px;text-transform:uppercase;letter-spacing:0.01em;}
-.ticket-date{font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--ink-soft);margin-bottom:6px;}
-.ticket-meta{font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;}
-.ticket-desc{font-size:0.9rem;color:var(--ink);line-height:1.45;margin-bottom:10px;}
+.ticket-date{font-family:'Space Mono',monospace;font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;}
+.ticket-meta{font-family:'Space Mono',monospace;font-size:0.78rem;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;}
+.ticket-desc{font-size:0.95rem;color:var(--ink);line-height:1.45;margin-bottom:10px;}
 .ticket-note{
-  font-size:0.84rem;color:var(--ink-soft);background:var(--paper);border-left:3px solid var(--chalk);
+  font-size:0.9rem;color:var(--ink-soft);background:var(--paper);border-left:3px solid var(--chalk);
   padding:8px 10px;margin-top:8px;border-radius:0 2px 2px 0;
 }
 /* Why a request is sitting still. Deliberately the loudest thing on the card
@@ -281,29 +310,35 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
   color:var(--ink);
 }
 
+/* The status is the one thing someone scanning the board actually needs, and it
+   used to be the faintest mark on the card: the inky #stampTexture filter and
+   opacity:0.92 mottled it down to almost nothing. The rubber-stamp look stays —
+   the tilt, the box, the spaced-out capitals — but it is now solid, sat on a
+   tint of its own colour, so it reads at a glance. Bring the texture back by
+   restoring the two commented lines; the filter is still in index.html. */
 .stamp{
   font-family:'Space Mono',monospace;
   font-weight:700;
-  font-size:0.78rem;
+  font-size:0.85rem;
   letter-spacing:0.12em;
   text-transform:uppercase;
   border:2.5px solid currentColor;
   border-radius:4px;
-  padding:4px 10px;
+  padding:5px 11px;
   transform:rotate(-6deg);
   white-space:nowrap;
   flex-shrink:0;
-  opacity:0.92;
-  filter:url(#stampTexture);
+  /* opacity:0.92; */
+  /* filter:url(#stampTexture); */
 }
-.stamp.open{color:var(--stamp-red);}
-.stamp.received{color:var(--stamp-amber);}
-.stamp.pending{color:var(--stamp-slate);}
-.stamp.completed{color:var(--stamp-green);}
+.stamp.open{color:var(--stamp-red);background:#f7e4e1;}
+.stamp.received{color:#8a6110;background:#f8eed6;}
+.stamp.pending{color:var(--stamp-slate);background:#e2eaf7;}
+.stamp.completed{color:var(--stamp-green);background:#dcece4;}
 
 .ticket-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
 .action-btn{
-  font-family:'Space Mono',monospace;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;
+  font-family:'Space Mono',monospace;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;
   padding:7px 12px;border-radius:2px;cursor:pointer;border:1px solid var(--ink);background:var(--white);color:var(--ink);
 }
 .action-btn.primary{background:var(--chalk);border-color:var(--chalk);color:var(--white);}
@@ -331,7 +366,7 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
   margin-bottom:16px;
   color:var(--ink);
   font-family:'Space Mono',monospace;
-  font-size:0.79rem;
+  font-size:0.85rem;
   line-height:1.65;
 }
 .emergency-flag{
@@ -350,6 +385,8 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
 
 @media (max-width:600px){
   .row2{grid-template-columns:1fr;}
+  /* Buys back enough width that the tabs usually still make one row. */
+  .tab{padding:9px 10px 8px;font-size:1rem;}
   .masthead{flex-direction:column;align-items:flex-start;}
   .identity{text-align:left;}
 }
@@ -428,13 +465,13 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
   gap:14px;
   align-items:baseline;
   padding:10px 4px;
-  border-bottom:1px solid var(--line);
-  font-size:0.86rem;
+  border-bottom:1px solid var(--line-soft);
+  font-size:0.92rem;
 }
 .audit-row:last-child{border-bottom:none;}
 .audit-time{
   font-family:'Space Mono',monospace;
-  font-size:0.7rem;
+  font-size:0.76rem;
   color:var(--ink-soft);
   white-space:nowrap;
   flex-shrink:0;
@@ -443,7 +480,7 @@ textarea{resize:vertical;min-height:170px;overflow-y:auto;}
 .audit-body b{color:var(--ink);}
 .audit-action{
   font-family:'Space Mono',monospace;
-  font-size:0.68rem;
+  font-size:0.74rem;
   text-transform:uppercase;
   letter-spacing:0.06em;
   padding:2px 7px;
@@ -521,7 +558,7 @@ body.is-admin .admin-only{display:block;}
   flex-wrap:wrap;
 }
 .user-main b{font-family:'Barlow Condensed',sans-serif;font-size:1.15rem;letter-spacing:0.01em;text-transform:uppercase;}
-.user-meta{font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--ink-soft);margin-top:2px;}
+.user-meta{font-family:'Space Mono',monospace;font-size:0.78rem;color:var(--ink-soft);margin-top:2px;}
 .user-tag{
   font-family:'Space Mono',monospace;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.08em;
   padding:2px 8px;border-radius:9px;margin-left:8px;
